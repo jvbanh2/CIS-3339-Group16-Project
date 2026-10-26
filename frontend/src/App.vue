@@ -89,40 +89,42 @@
   </main>
 </template>
 
-<script>
+<script setup>
+// Migrated from Options API to Composition API (Sprint 2, F1 task 2).
+// setup() -> runs directly here; data() -> ref(); created() -> async IIFE
+// (kept fire-and-forget, not a blocking top-level await — see the doc);
+// methods -> plain functions, no `this`.
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useLoggedInUserStore } from './store/loggedInUser'
 import { getOrgName } from './api/api'
 import { useToast } from 'vue-toastification'
 
-//Notifications
 const toast = useToast()
+const router = useRouter()
+const user = useLoggedInUserStore()
 
-export default {
-  setup() {
-    const user = useLoggedInUserStore();
-    return { user };
-  },
-  data() {
-    return {
-      orgName: "Dataplatform",
-    };
-  },
-  async created() {
-    try {
-      this.orgName = await getOrgName();
-    } catch {
-      throw (error)
-    }
-  },
-  methods: {
-    logout() {
-      try {
-        this.$store.dispatch('clearSessionData');
-        this.$router.push('/')
-      } catch (error) {
-        toast.error('logout error', error)
-      }
-    },
+// was data()
+const orgName = ref("Dataplatform")
+
+// was async created() — fire-and-forget, matches the original (doesn't block the first render)
+;(async () => {
+  try {
+    orgName.value = await getOrgName()
+  } catch {
+    throw (error)
+  }
+})()
+
+// was methods.logout() — see "issues found" below: not called by the template,
+// and relies on a Vuex-style `this.$store` that doesn't exist in this Pinia app.
+// Carried over as-is for this task; not fixed here.
+function logout() {
+  try {
+    $store.dispatch('clearSessionData')
+    router.push('/')
+  } catch (error) {
+    toast.error('logout error', error)
   }
 }
 </script>
