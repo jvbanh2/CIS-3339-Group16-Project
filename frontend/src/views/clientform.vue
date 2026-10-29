@@ -238,7 +238,7 @@ async function submitForm() {
     router.push('/findclient')
     toast.success(response)
   } catch (error) {
-    toast.error(error)
+    toast.error(error.message)
   }
 }
 </script>

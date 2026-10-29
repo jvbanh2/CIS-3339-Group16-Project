@@ -264,7 +264,7 @@ onMounted(async () => {
     clients.value = clientsResponse
     services.value = servicesResponse
   } catch (error) {
-    toast.error('error loading data', error)
+    toast.error('error loading data: ' + error.message)
   }
 })
 
@@ -283,7 +283,7 @@ async function submitEventUpdate() {
     toast.success(response)
     router.push('/findevents')
   } catch (error) {
-    toast.error('error updating event', error)
+    toast.error('error updating event: ' + error.message)
   }
 }
 
@@ -298,7 +298,7 @@ async function submitDeleteEvent() {
     toast.success(response)
     router.push('/findevents')
   } catch (error) {
-    toast.error(error)
+    toast.error(error.message)
   }
 }
 </script>

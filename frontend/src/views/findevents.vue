@@ -59,7 +59,26 @@
         <h3 class="italic">Click table row to view event details</h3>
       </div>
       <div class="flex flex-col col-span-2">
-        <table class="min-w-full shadow-md rounded">
+        <!-- Loading state -->
+        <div v-if="loading" class="flex justify-center mt-10">
+          <p class="text-gray-500 animate-pulse">Loading events…</p>
+        </div>
+
+        <!-- Error state -->
+        <div v-else-if="error" class="mt-4 bg-red-50 p-4 rounded">
+          <p class="text-red-800 font-semibold">{{ error }}</p>
+          <button class="mt-2 bg-red-700 text-white rounded px-3 py-1" @click="execute">
+            Retry
+          </button>
+        </div>
+
+        <!-- Empty state -->
+        <div v-else-if="!events || events.length === 0" class="flex justify-center mt-10 text-gray-600">
+          No events found.
+        </div>
+
+        <!-- Data table -->
+        <table v-else class="min-w-full shadow-md rounded">
           <thead class="bg-gray-50 text-xl">
             <tr>
               <th class="p-4 text-left">Event Name</th>
@@ -85,14 +104,14 @@
 
 <script setup>
 // Migrated from Options API to Composition API (Sprint 2, F1 task 5).
+// Sprint 2, F2: wired through the useApi composable for loading/empty/error
+// state, instead of its own ref + try/catch bookkeeping. The old
+// toast.error(...) calls are gone -- the error now renders inline with a
+// retry button.
 import { ref, onMounted } from 'vue'
 import { getEvents, searchEvents } from '../api/api'
-import { useToast } from 'vue-toastification'
+import { useApi } from '../composables/useApi'
 
-const toast = useToast()
-
-// variable to hold all events for the organization
-const events = ref(null)
 // Parameters for search to occur
 const searchBy = ref(null)
 const name = ref(null)
@@ -100,54 +119,46 @@ const eventDate = ref(null)
 // variable stores the ID of the row that the mouse is currently hovering over (to highlight the row red)
 const hoverId = ref(null)
 
-// method called when component is mounted
-async function loadData() {
+// decides which API call to make based on the current search fields; this
+// is the one function useApi wraps, so calling execute() again (on submit,
+// on clear, or from the retry button) always re-reads the latest values
+async function fetchEvents() {
+  if (searchBy.value === 'Event Name') {
+    return await searchEvents({
+      searchBy: 'name',
+      name: name.value,
+    })
+  }
+  if (searchBy.value === 'Event Date') {
+    const eventDateObj = new Date(eventDate.value)
+    const formattedDate = eventDateObj.toISOString().substring(0, 10)
+    return await searchEvents({
+      searchBy: 'date',
+      eventDate: formattedDate,
+    })
+  }
+  return await getEvents()
+}
+
+const { data: events, loading, error, execute } = useApi(fetchEvents)
+
+// method called when component is mounted / Clear Search is clicked
+function loadData() {
   // Resets variables used for search
   searchBy.value = null
   name.value = null
   eventDate.value = null
-
-  // get list of events
-  try {
-    const response = await getEvents()
-    events.value = response
-  } catch (error) {
-    toast.error('loadData error', error)
-  }
+  execute()
 }
 
 // method called when user searches for an event
-async function handleSubmitForm() {
-  // if user searches by event name
-  if (searchBy.value === 'Event Name') {
-    if (name.value) {
-      try {
-        const query = {
-          searchBy: 'name',
-          name: name.value
-        }
-        const response = await searchEvents(query)
-        events.value = response
-      } catch (error) {
-        toast.error('Error searching events', error)
-      }
-    }
-    // if user searches by event date
-  } else if (searchBy.value === 'Event Date') {
-    if (eventDate.value) {
-      try {
-        const eventDateObj = new Date(eventDate.value)
-        const formattedDate = eventDateObj.toISOString().substring(0, 10)
-        const query = {
-          searchBy: 'date',
-          eventDate: formattedDate
-        }
-        const response = await searchEvents(query)
-        events.value = response
-      } catch (error) {
-        toast.error('Error searching events:', error)
-      }
-    }
+function handleSubmitForm() {
+  // same guard as before the conversion: only hit the API if there's
+  // actually something to search by
+  const hasNameQuery = searchBy.value === 'Event Name' && name.value
+  const hasDateQuery = searchBy.value === 'Event Date' && eventDate.value
+  if (hasNameQuery || hasDateQuery) {
+    execute()
   }
 }
 
@@ -161,6 +172,6 @@ function formatDate(date) {
 }
 
 onMounted(() => {
-  loadData()
+  execute()
 })
 </script>

@@ -217,7 +217,7 @@ onMounted(async () => {
     const response = await getServices()
     activeServices.value = response.filter((item) => item.status === 'Active')
   } catch (error) {
-    toast.error(error)
+    toast.error(error.message)
   }
 })
 
@@ -237,7 +237,7 @@ async function handleSubmitForm() {
     router.push('/findevents')
     toast.success(response)
   } catch (error) {
-    toast.error('error creating new event:', error)
+    toast.error('error creating new event: ' + error.message)
   }
 }
 </script>

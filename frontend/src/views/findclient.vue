@@ -68,7 +68,26 @@
       </div>
       <!--Table showing list of Clients-->
       <div class="flex flex-col col-span-2">
-        <table class="min-w-full shadow-md rounded">
+        <!-- Loading state -->
+        <div v-if="loading" class="flex justify-center mt-10">
+          <p class="text-gray-500 animate-pulse">Loading clients…</p>
+        </div>
+
+        <!-- Error state -->
+        <div v-else-if="error" class="mt-4 bg-red-50 p-4 rounded">
+          <p class="text-red-800 font-semibold">{{ error }}</p>
+          <button class="mt-2 bg-red-700 text-white rounded px-3 py-1" @click="execute">
+            Retry
+          </button>
+        </div>
+
+        <!-- Empty state -->
+        <div v-else-if="!clients || clients.length === 0" class="flex justify-center mt-10 text-gray-600">
+          No clients found.
+        </div>
+
+        <!-- Data table -->
+        <table v-else class="min-w-full shadow-md rounded">
           <thead class="bg-gray-50 text-xl">
             <tr>
               <th class="p-4 text-left">Name</th>
@@ -97,65 +116,62 @@
 
 <script setup>
 // Migrated from Options API to Composition API (Sprint 2, F1 task 4).
+// Sprint 2, F2: wired through the useApi composable for loading/empty/error
+// state, instead of its own ref + try/catch bookkeeping. The old
+// toast.error(error) call is gone -- the error now renders inline with a
+// retry button, which is a clearer affordance for a failed list load than a
+// toast that disappears on its own.
 import { ref, onMounted } from 'vue'
 import { getClients, searchClients } from '../api/api'
-import { useToast } from 'vue-toastification'
+import { useApi } from '../composables/useApi'
 
-const toast = useToast()
-
-const clients = ref(null)
 const searchBy = ref('')
 const firstName = ref('')
 const lastName = ref('')
 const phoneNumber = ref('')
 const hoverId = ref(null)
 
-async function loadData() {
+// decides which API call to make based on the current search fields; this
+// is the one function useApi wraps, so calling execute() again (on submit,
+// on clear, or from the retry button) always re-reads the latest values
+async function fetchClients() {
+  if (searchBy.value === 'Client Name') {
+    return await searchClients({
+      searchBy: 'name',
+      firstName: firstName.value,
+      lastName: lastName.value,
+    })
+  }
+  if (searchBy.value === 'Client Number') {
+    return await searchClients({
+      searchBy: 'number',
+      phoneNumber: phoneNumber.value,
+    })
+  }
+  return await getClients()
+}
+
+const { data: clients, loading, error, execute } = useApi(fetchClients)
+
+function loadData() {
   searchBy.value = ''
   firstName.value = ''
   lastName.value = ''
   phoneNumber.value = ''
-
-  try {
-    const response = await getClients()
-    clients.value = response
-  } catch (error) {
-    toast.error(error)
-  }
+  execute()
 }
 
-async function handleSubmitForm() {
-  if (searchBy.value === 'Client Name') {
-    if (firstName.value || lastName.value) {
-      try {
-        const query = {
-          searchBy: 'name',
-          firstName: firstName.value,
-          lastName: lastName.value,
-        }
-        const response = await searchClients(query)
-        clients.value = response
-      } catch (error) {
-        toast.error(error)
-      }
-    }
-  } else if (searchBy.value === 'Client Number') {
-    if (phoneNumber.value) {
-      try {
-        const query = {
-          searchBy: 'number',
-          phoneNumber: phoneNumber.value,
-        }
-        const response = await searchClients(query)
-        clients.value = response
-      } catch (error) {
-        toast.error(error)
-      }
-    }
+function handleSubmitForm() {
+  // same guard as before the conversion: only hit the API if there's
+  // actually something to search by
+  const hasNameQuery = searchBy.value === 'Client Name' && (firstName.value || lastName.value)
+  const hasNumberQuery = searchBy.value === 'Client Number' && phoneNumber.value
+  if (hasNameQuery || hasNumberQuery) {
+    execute()
   }
 }
 
 onMounted(() => {
-  loadData()
+  execute()
 })
 </script>

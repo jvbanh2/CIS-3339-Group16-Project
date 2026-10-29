@@ -162,7 +162,7 @@ onMounted(async () => {
     Object.assign(service, serviceResponse)
     events.value = eventsResponse
   } catch (error) {
-    toast.error(error)
+    toast.error(error.message)
   }
 })
 
@@ -190,7 +190,7 @@ async function submitServiceUpdate() {
     router.push('/findservice')
     toast.success(response)
   } catch (error) {
-    toast.error('error updating service', error)
+    toast.error('error updating service: ' + error.message)
   }
 }
 
@@ -205,7 +205,7 @@ async function submitDeleteService() {
     toast.success(response)
     router.push('/findservice')
   } catch (error) {
-    toast.error(error)
+    toast.error(error.message)
   }
 }
 </script>

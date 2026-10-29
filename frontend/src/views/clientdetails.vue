@@ -311,7 +311,7 @@ onMounted(async () => {
     clientEvents.value = clientEventsResponse
     eventsFiltered.value = nonClientEventsResponse
   } catch (error) {
-    toast.error('error loading data:', error)
+    toast.error('error loading data: ' + error.message)
   }
 })
 
@@ -332,13 +332,13 @@ async function removeClientFromEvent(clientId, eventId) {
     const response = await deregisterAttendee(eventId, clientId)
     toast.success(response)
   } catch (error) {
-    toast.error(error)
+    toast.error(error.message)
   }
   try {
     clientEvents.value = await getClientEvents(route.params.id)
     eventsFiltered.value = await getNonClientEvents(route.params.id)
   } catch (error) {
-    toast.error(error)
+    toast.error(error.message)
   }
 }
 
@@ -359,14 +359,14 @@ async function addClientToEvent() {
           eventsFiltered.value = await getNonClientEvents(route.params.id)
           eventsSelected.value = []
         } catch (error) {
-          toast.error(error)
+          toast.error(error.message)
         }
       })
       .catch((error) => {
-        toast.error(error)
+        toast.error(error.message)
       })
   } catch (error) {
-    toast.error(error)
+    toast.error(error.message)
   }
 }
 
@@ -382,7 +382,7 @@ async function submitUpdateClient() {
     router.push('/findclient')
     toast.success(response)
   } catch (error) {
-    toast.error(error)
+    toast.error(error.message)
   }
 }
 
@@ -392,7 +392,7 @@ async function submitDeleteClient() {
     toast.success(response)
     router.push('/findclient')
   } catch (error) {
-    toast.error(error)
+    toast.error(error.message)
   }
 }
 </script>
