@@ -68,28 +68,7 @@
       </div>
       <!--Table showing list of Clients-->
       <div class="flex flex-col col-span-2">
-        <table class="min-w-full shadow-md rounded">
-          <thead class="bg-gray-50 text-xl">
-            <tr>
-              <th class="p-4 text-left">Name</th>
-              <th class="p-4 text-left">Phone number</th>
-              <th class="p-4 text-left">City</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-300">
-            <tr @click="$router.push({ name: 'clientdetails', params: { id: client._id } })" v-for="client in clients"
-              :key="client._id" class="cursor-pointer" :class="{ 'hoverRow': hoverId === client._id }"
-              @mouseenter="hoverId = client._id" @mouseleave="hoverId = null">
-              <td class="p-2 text-left">
-                {{ client.firstName + ' ' + client.lastName }}
-              </td>
-              <td class="p-2 text-left">
-                {{ client.phoneNumber.primary }}
-              </td>
-              <td class="p-2 text-left">{{ client.address.city }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <DataTable :columns="columns" :rows="clients" @row-click="openClient" />
       </div>
     </div>
   </main>
@@ -98,11 +77,13 @@
 <script>
 import { getClients, searchClients } from '../api/api'
 import { useToast } from 'vue-toastification'
+import DataTable from '../components/DataTable.vue'
 
 //Notifications
 const toast = useToast()
 
 export default {
+  components: { DataTable },
   data() {
     return {
       //variable to store all clients and their information for the organization
@@ -112,8 +93,17 @@ export default {
       firstName: '',
       lastName: '',
       phoneNumber: '',
-      // variable stores the ID of the row that the mouse is currently hovering over (to highlight the row red)
-      hoverId: null,
+      // column definitions for the DataTable
+      columns: [
+        {
+          label: 'Name',
+          field: 'name',
+          render: (c) => `${c.firstName} ${c.lastName}`,
+          sortValue: (c) => `${c.lastName} ${c.firstName}`
+        },
+        { label: 'Phone number', field: 'phoneNumber.primary' },
+        { label: 'City', field: 'address.city' }
+      ]
     }
   },
   mounted() {
@@ -121,6 +111,10 @@ export default {
     this.loadData()
   },
   methods: {
+    // called when a table row is clicked
+    openClient(client) {
+      this.$router.push({ name: 'clientdetails', params: { id: client._id } })
+    },
     // method called when component is mounted
     async loadData() {
       // Resets all the variables

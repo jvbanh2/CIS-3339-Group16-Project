@@ -61,23 +61,7 @@
         <h3 class="italic">Click table row to view service details</h3>
       </div>
       <div class="flex flex-col col-span-2">
-        <table class="min-w-full shadow-md rounded">
-          <thead class="bg-gray-50 text-xl">
-            <tr>
-              <th class="p-4 text-left" style="width: 25%;">Service Name</th>
-              <th class="p-4 text-left" style="width: 75%;">Service Description</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-300">
-            <tr @click="$router.push({name: 'servicedetails', params: { id: service._id } })" 
-            v-for="service in services" :key="service._id" class="cursor-pointer"
-              :class="{ 'hoverRow': hoverId === service._id }" @mouseenter="hoverId = service._id"
-              @mouseleave="hoverId = null">
-              <td class="p-4 text-left">{{ service.name }}</td>
-              <td class="p-4 text-left text-sm">{{ service.description }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <DataTable :columns="columns" :rows="services" @row-click="openService" />
       </div>
     </div>
   </main>
@@ -86,11 +70,13 @@
 <script>
 import { getServices, searchServices } from '../api/api'
 import { useToast } from 'vue-toastification'
+import DataTable from '../components/DataTable.vue'
 
 //Notifications
 const toast = useToast()
 
 export default {
+  components: { DataTable },
   data() {
     return {
       //variable to hold the services for the organization
@@ -99,8 +85,11 @@ export default {
       searchBy: null,
       name: null,
       description: null,
-      // variable stores the ID of the row that the mouse is currently hovering over (to highlight the row red)
-      hoverId: null,
+      // column definitions for the DataTable
+      columns: [
+        { label: 'Service Name', field: 'name', width: '25%' },
+        { label: 'Service Description', field: 'description', width: '75%', cellClass: 'text-sm' }
+      ]
     }
   },
   mounted() {
@@ -108,6 +97,10 @@ export default {
     this.loadData();
   },
   methods: {
+    // called when a table row is clicked
+    openService(service) {
+      this.$router.push({ name: 'servicedetails', params: { id: service._id } })
+    },
     // method called when component is mounted
     async loadData() {
       // Resets all the variables

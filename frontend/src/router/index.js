@@ -16,7 +16,8 @@ const routes = [
     path: '/clientform',
     name: 'clientform',
     // only authenticated users can create clients
-    meta: { requiresAuth: true },
+    // clientform, eventform, and serviceform:
+meta: { requiresAuth: true, requiresEditor: true },
     component: () => import('../views/clientform.vue')
   },
   {
@@ -34,7 +35,8 @@ const routes = [
   {
     path: '/eventform',
     name: 'eventform',
-    meta: { requiresAuth: true },
+    // clientform, eventform, and serviceform:
+meta: { requiresAuth: true, requiresEditor: true },
     component: () => import('../views/eventform.vue')
   },
   {
@@ -47,12 +49,13 @@ const routes = [
     path: '/eventdetails/:id',
     name: 'eventdetails',
     meta: { requiresAuth: true },
-    component: () => import('../views/eventdetails.vue')
+    component: () => import('../views/eventDetails.vue')
   },
   {
     path: '/serviceform',
     name: 'serviceform',
-    meta: { requiresAuth: true },
+    // clientform, eventform, and serviceform:
+meta: { requiresAuth: true, requiresEditor: true },
     component: () => import('../views/serviceform.vue')
   },
   {
@@ -76,12 +79,14 @@ const router = createRouter({
 // protecting the routes
 router.beforeEach((to) => {
   const store = useLoggedInUserStore()
+
   if (to.meta.requiresAuth && !store.isLoggedIn) {
-    return {
-      path: '/login',
-      // save the location we were at to come back later
-      query: { redirect: to.fullPath },
-    }
+    return { path: '/login', query: { redirect: to.fullPath } }
+  }
+
+  // allowlist: only 'editor' passes
+  if (to.meta.requiresEditor && store.role !== 'editor') {
+    return { path: '/' }
   }
 })
 

@@ -59,25 +59,7 @@
         <h3 class="italic">Click table row to view event details</h3>
       </div>
       <div class="flex flex-col col-span-2">
-        <table class="min-w-full shadow-md rounded">
-          <thead class="bg-gray-50 text-xl">
-            <tr>
-              <th class="p-4 text-left">Event Name</th>
-              <th class="p-4 text-left">Event Date</th>
-              <th class="p-4 text-left">Event Address</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-300">
-            <tr @click="$router.push({name: 'eventdetails', params: { id: event._id } })"
-              v-for="event in events" :key="event._id" class="cursor-pointer"
-              :class="{ 'hoverRow': hoverId === event._id }" @mouseenter="hoverId = event._id"
-              @mouseleave="hoverId = null">
-              <td class="p-2 text-left">{{ event.name }}</td>
-              <td class="p-2 text-left">{{ formatDate(event.date) }}</td>
-              <td class="p-2 text-left">{{ event.address.line1 }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <DataTable :columns="columns" :rows="events" @row-click="openEvent" />
       </div>
     </div>
   </main>
@@ -86,11 +68,22 @@
 <script>
 import { getEvents, searchEvents } from '../api/api'
 import { useToast } from 'vue-toastification'
+import DataTable from '../components/DataTable.vue'
 
 //Notifications
 const toast = useToast()
 
+// formats an event date as MM/DD/YYYY (outside the component so the column config can use it)
+function formatDate(date) {
+  const isoDate = new Date(date);
+  const year = isoDate.getUTCFullYear();
+  const month = String(isoDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(isoDate.getUTCDate()).padStart(2, '0');
+  return `${month}/${day}/${year}`;
+}
+
 export default {
+  components: { DataTable },
   data() {
     return {
       //variable to hold all events for the organization
@@ -99,8 +92,18 @@ export default {
       searchBy: null,
       name: null,
       eventDate: null,
-      // variable stores the ID of the row that the mouse is currently hovering over (to highlight the row red)
-      hoverId: null,
+      // column definitions for the DataTable
+      columns: [
+        { label: 'Event Name', field: 'name' },
+        {
+          label: 'Event Date',
+          field: 'date',
+          render: (e) => formatDate(e.date),
+          // sort by the real date, not the MM/DD/YYYY text
+          sortValue: (e) => new Date(e.date).getTime()
+        },
+        { label: 'Event Address', field: 'address.line1' }
+      ]
     }
   },
   mounted() {
@@ -108,6 +111,10 @@ export default {
     this.loadData();
   },
   methods: {
+    // called when a table row is clicked
+    openEvent(event) {
+      this.$router.push({ name: 'eventdetails', params: { id: event._id } })
+    },
     // method called when component is mounted
     async loadData() {
       // Resets variables used for search
@@ -115,8 +122,6 @@ export default {
       this.name = null
       this.eventDate = null
 
-      // show loading wheel
-      this.isLoading = true;
       // get list of events
       try {
         const response = await getEvents();
@@ -159,15 +164,6 @@ export default {
           }
         }
       }
-    },
-
-    // method called for each event date so it will be formatted correctly on the table
-    formatDate(date) {
-      const isoDate = new Date(date);
-      const year = isoDate.getUTCFullYear();
-      const month = String(isoDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(isoDate.getUTCDate()).padStart(2, '0');
-      return `${month}/${day}/${year}`;
     },
   },
 }

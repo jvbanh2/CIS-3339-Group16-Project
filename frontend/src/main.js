@@ -26,3 +26,8 @@ const options = {
 };
 app.use(Toast, options);
 app.mount("#app");
+
+import { useLoggedInUserStore } from './store/loggedInUser'
+app.use(pinia)
+useLoggedInUserStore().restoreSession()
+app.use(router);
