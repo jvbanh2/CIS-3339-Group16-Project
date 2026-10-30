@@ -15,8 +15,8 @@ const routes = [
   {
     path: '/clientform',
     name: 'clientform',
-    // only authenticated users can create clients
-    meta: { requiresAuth: true },
+    // only authenticated editors can create clients -- viewers can look but not add
+    meta: { requiresAuth: true, requiresEditor: true },
     component: () => import('../views/clientform.vue')
   },
   {
@@ -34,7 +34,8 @@ const routes = [
   {
     path: '/eventform',
     name: 'eventform',
-    meta: { requiresAuth: true },
+    // only authenticated editors can create events -- viewers can look but not add
+    meta: { requiresAuth: true, requiresEditor: true },
     component: () => import('../views/eventform.vue')
   },
   {
@@ -47,12 +48,17 @@ const routes = [
     path: '/eventdetails/:id',
     name: 'eventdetails',
     meta: { requiresAuth: true },
-    component: () => import('../views/eventdetails.vue')
+    // fixed casing: the actual file is eventDetails.vue (capital D). This
+    // import worked by accident on a case-insensitive filesystem (Windows,
+    // macOS default) but fails to resolve on a case-sensitive one (Linux,
+    // which is what a production build/deploy will run on).
+    component: () => import('../views/eventDetails.vue')
   },
   {
     path: '/serviceform',
     name: 'serviceform',
-    meta: { requiresAuth: true },
+    // only authenticated editors can create services -- viewers can look but not add
+    meta: { requiresAuth: true, requiresEditor: true },
     component: () => import('../views/serviceform.vue')
   },
   {
@@ -76,6 +82,7 @@ const router = createRouter({
 // protecting the routes
 router.beforeEach((to) => {
   const store = useLoggedInUserStore()
+
   if (to.meta.requiresAuth && !store.isLoggedIn) {
     return {
       path: '/login',
@@ -83,7 +90,12 @@ router.beforeEach((to) => {
       query: { redirect: to.fullPath },
     }
   }
+
+  // some routes (the create forms) are editor-only; a logged-in viewer gets
+  // bounced back to the dashboard instead of seeing the form
+  if (to.meta.requiresEditor && store.role !== 'editor') {
+    return { path: '/' }
+  }
 })
 
 export default router
-

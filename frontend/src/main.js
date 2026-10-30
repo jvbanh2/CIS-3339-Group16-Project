@@ -7,6 +7,7 @@ import Toast from "vue-toastification";
 import "vue-toastification/dist/index.css";
 //state management library
 import { createPinia } from 'pinia'
+import { useLoggedInUserStore } from './store/loggedInUser'
 
 const app = createApp(App);
 
@@ -19,6 +20,12 @@ pinia.use(({ store }) => {
 
 //add pinia object to our instance
 app.use(pinia)
+
+// Sprint 2, F4: restore the logged-in state from the JWT already sitting in
+// localStorage (if any) before the router's first navigation guard runs --
+// otherwise a page refresh looks logged-out until this reads the token back.
+useLoggedInUserStore().restoreSession()
+
 app.use(router);
 
 const options = {
