@@ -72,31 +72,13 @@
           </button>
         </div>
 
-        <!-- Empty state -->
-        <div v-else-if="!events || events.length === 0" class="flex justify-center mt-10 text-gray-600">
-          No events found.
-        </div>
-
-        <!-- Data table -->
-        <table v-else class="min-w-full shadow-md rounded">
-          <thead class="bg-gray-50 text-xl">
-            <tr>
-              <th class="p-4 text-left">Event Name</th>
-              <th class="p-4 text-left">Event Date</th>
-              <th class="p-4 text-left">Event Address</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-300">
-            <tr @click="$router.push({name: 'eventdetails', params: { id: event._id } })"
-              v-for="event in events" :key="event._id" class="cursor-pointer"
-              :class="{ 'hoverRow': hoverId === event._id }" @mouseenter="hoverId = event._id"
-              @mouseleave="hoverId = null">
-              <td class="p-2 text-left">{{ event.name }}</td>
-              <td class="p-2 text-left">{{ formatDate(event.date) }}</td>
-              <td class="p-2 text-left">{{ event.address.line1 }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <!-- Data table (DataTable renders its own "No results" row when events is empty) -->
+        <DataTable
+          v-else
+          :columns="columns"
+          :rows="events || []"
+          @row-click="openEvent"
+        />
       </div>
     </div>
   </main>
@@ -104,20 +86,43 @@
 
 <script setup>
 // Migrated from Options API to Composition API (Sprint 2, F1 task 5).
-// Sprint 2, F2: wired through the useApi composable for loading/empty/error
-// state, instead of its own ref + try/catch bookkeeping. The old
-// toast.error(...) calls are gone -- the error now renders inline with a
-// retry button.
+// Sprint 2, F2: wired through the useApi composable for loading/error
+// state, instead of its own ref + try/catch bookkeeping.
+// Sprint 2, F3 (reconciled with the f3-f4-datatable-session branch): the
+// raw <table> is now the reusable <DataTable> component, using the same
+// column definitions from that branch. DataTable owns its own empty-state
+// row, so the separate "no events" message is gone.
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getEvents, searchEvents } from '../api/api'
 import { useApi } from '../composables/useApi'
+import DataTable from '../components/DataTable.vue'
+
+const router = useRouter()
 
 // Parameters for search to occur
 const searchBy = ref(null)
 const name = ref(null)
 const eventDate = ref(null)
-// variable stores the ID of the row that the mouse is currently hovering over (to highlight the row red)
-const hoverId = ref(null)
+
+function formatDate(date) {
+  const isoDate = new Date(date)
+  const year = isoDate.getUTCFullYear()
+  const month = String(isoDate.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(isoDate.getUTCDate()).padStart(2, '0')
+  return `${month}/${day}/${year}`
+}
+
+const columns = [
+  { label: 'Event Name', field: 'name' },
+  {
+    label: 'Event Date',
+    field: 'date',
+    render: (e) => formatDate(e.date),
+    sortValue: (e) => new Date(e.date).getTime(),
+  },
+  { label: 'Event Address', field: 'address.line1' },
+]
 
 // decides which API call to make based on the current search fields; this
 // is the one function useApi wraps, so calling execute() again (on submit,
@@ -162,13 +167,8 @@ function handleSubmitForm() {
   }
 }
 
-// method called for each event date so it will be formatted correctly on the table
-function formatDate(date) {
-  const isoDate = new Date(date)
-  const year = isoDate.getUTCFullYear()
-  const month = String(isoDate.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(isoDate.getUTCDate()).padStart(2, '0')
-  return `${month}/${day}/${year}`
+function openEvent(event) {
+  router.push({ name: 'eventdetails', params: { id: event._id } })
 }
 
 onMounted(() => {

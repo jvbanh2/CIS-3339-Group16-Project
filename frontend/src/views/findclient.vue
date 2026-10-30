@@ -81,34 +81,13 @@
           </button>
         </div>
 
-        <!-- Empty state -->
-        <div v-else-if="!clients || clients.length === 0" class="flex justify-center mt-10 text-gray-600">
-          No clients found.
-        </div>
-
-        <!-- Data table -->
-        <table v-else class="min-w-full shadow-md rounded">
-          <thead class="bg-gray-50 text-xl">
-            <tr>
-              <th class="p-4 text-left">Name</th>
-              <th class="p-4 text-left">Phone number</th>
-              <th class="p-4 text-left">City</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-300">
-            <tr @click="$router.push({ name: 'clientdetails', params: { id: client._id } })" v-for="client in clients"
-              :key="client._id" class="cursor-pointer" :class="{ 'hoverRow': hoverId === client._id }"
-              @mouseenter="hoverId = client._id" @mouseleave="hoverId = null">
-              <td class="p-2 text-left">
-                {{ client.firstName + ' ' + client.lastName }}
-              </td>
-              <td class="p-2 text-left">
-                {{ client.phoneNumber.primary }}
-              </td>
-              <td class="p-2 text-left">{{ client.address.city }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <!-- Data table (DataTable renders its own "No results" row when clients is empty) -->
+        <DataTable
+          v-else
+          :columns="columns"
+          :rows="clients || []"
+          @row-click="openClient"
+        />
       </div>
     </div>
   </main>
@@ -116,20 +95,35 @@
 
 <script setup>
 // Migrated from Options API to Composition API (Sprint 2, F1 task 4).
-// Sprint 2, F2: wired through the useApi composable for loading/empty/error
-// state, instead of its own ref + try/catch bookkeeping. The old
-// toast.error(error) call is gone -- the error now renders inline with a
-// retry button, which is a clearer affordance for a failed list load than a
-// toast that disappears on its own.
+// Sprint 2, F2: wired through the useApi composable for loading/error
+// state, instead of its own ref + try/catch bookkeeping.
+// Sprint 2, F3 (reconciled with the f3-f4-datatable-session branch): the
+// raw <table> is now the reusable <DataTable> component, using the same
+// column definitions from that branch. DataTable owns its own empty-state
+// row, so the separate "no clients" message is gone.
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getClients, searchClients } from '../api/api'
 import { useApi } from '../composables/useApi'
+import DataTable from '../components/DataTable.vue'
+
+const router = useRouter()
 
 const searchBy = ref('')
 const firstName = ref('')
 const lastName = ref('')
 const phoneNumber = ref('')
-const hoverId = ref(null)
+
+const columns = [
+  {
+    label: 'Name',
+    field: 'name',
+    render: (c) => `${c.firstName} ${c.lastName}`,
+    sortValue: (c) => `${c.lastName} ${c.firstName}`,
+  },
+  { label: 'Phone number', field: 'phoneNumber.primary' },
+  { label: 'City', field: 'address.city' },
+]
 
 // decides which API call to make based on the current search fields; this
 // is the one function useApi wraps, so calling execute() again (on submit,
@@ -169,6 +163,10 @@ function handleSubmitForm() {
   if (hasNameQuery || hasNumberQuery) {
     execute()
   }
+}
+
+function openClient(client) {
+  router.push({ name: 'clientdetails', params: { id: client._id } })
 }
 
 onMounted(() => {

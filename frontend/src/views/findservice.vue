@@ -61,23 +61,26 @@
         <h3 class="italic">Click table row to view service details</h3>
       </div>
       <div class="flex flex-col col-span-2">
-        <table class="min-w-full shadow-md rounded">
-          <thead class="bg-gray-50 text-xl">
-            <tr>
-              <th class="p-4 text-left" style="width: 25%;">Service Name</th>
-              <th class="p-4 text-left" style="width: 75%;">Service Description</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-300">
-            <tr @click="$router.push({name: 'servicedetails', params: { id: service._id } })"
-            v-for="service in services" :key="service._id" class="cursor-pointer"
-              :class="{ 'hoverRow': hoverId === service._id }" @mouseenter="hoverId = service._id"
-              @mouseleave="hoverId = null">
-              <td class="p-4 text-left">{{ service.name }}</td>
-              <td class="p-4 text-left text-sm">{{ service.description }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <!-- Loading state -->
+        <div v-if="loading" class="flex justify-center mt-10">
+          <p class="text-gray-500 animate-pulse">Loading services…</p>
+        </div>
+
+        <!-- Error state -->
+        <div v-else-if="error" class="mt-4 bg-red-50 p-4 rounded">
+          <p class="text-red-800 font-semibold">{{ error }}</p>
+          <button class="mt-2 bg-red-700 text-white rounded px-3 py-1" @click="execute">
+            Retry
+          </button>
+        </div>
+
+        <!-- Data table (DataTable renders its own "No results" row when services is empty) -->
+        <DataTable
+          v-else
+          :columns="columns"
+          :rows="services || []"
+          @row-click="openService"
+        />
       </div>
     </div>
   </main>
@@ -85,71 +88,77 @@
 
 <script setup>
 // Migrated from Options API to Composition API (Sprint 2, F1 task 6).
+// Sprint 2, F2: wired through the useApi composable for loading/error
+// state, instead of its own ref + try/catch bookkeeping.
+// Sprint 2, F3 (reconciled with the f3-f4-datatable-session branch): the
+// raw <table> is now the reusable <DataTable> component, using the same
+// column definitions (including width/cellClass) from that branch.
+// DataTable owns its own empty-state row, so the separate "no services"
+// message is gone.
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getServices, searchServices } from '../api/api'
-import { useToast } from 'vue-toastification'
+import { useApi } from '../composables/useApi'
+import DataTable from '../components/DataTable.vue'
 
-const toast = useToast()
+const router = useRouter()
 
-// variable to hold the services for the organization
-const services = ref(null)
 // Parameters for search to occur
 const searchBy = ref(null)
 const name = ref(null)
 const description = ref(null)
-// variable stores the ID of the row that the mouse is currently hovering over (to highlight the row red)
-const hoverId = ref(null)
 
-// method called when component is mounted
-async function loadData() {
+const columns = [
+  { label: 'Service Name', field: 'name', width: '25%' },
+  { label: 'Service Description', field: 'description', width: '75%', cellClass: 'text-sm' },
+]
+
+// decides which API call to make based on the current search fields; this
+// is the one function useApi wraps, so calling execute() again (on submit,
+// on clear, or from the retry button) always re-reads the latest values
+async function fetchServices() {
+  if (searchBy.value === 'Service Name') {
+    return await searchServices({
+      searchBy: 'name',
+      name: name.value,
+    })
+  }
+  if (searchBy.value === 'Service Description') {
+    return await searchServices({
+      searchBy: 'description',
+      description: description.value,
+    })
+  }
+  return await getServices()
+}
+
+const { data: services, loading, error, execute } = useApi(fetchServices)
+
+// method called when component is mounted / Clear Search is clicked
+function loadData() {
   // Resets all the variables
   searchBy.value = ''
   name.value = ''
   description.value = ''
-
-  // get list of services
-  try {
-    const response = await getServices()
-    services.value = response
-  } catch (error) {
-    toast.error(error)
-  }
+  execute()
 }
 
 // method called when user searches for a service
-async function handleSubmitForm() {
-  // if user searches by service name
-  if (searchBy.value === 'Service Name') {
-    if (name.value) {
-      try {
-        const query = {
-          searchBy: 'name',
-          name: name.value
-        }
-        const response = await searchServices(query)
-        services.value = response
-      } catch (error) {
-        toast.error(error)
-      }
-    }
-    // if user searches by service description
-  } else if (searchBy.value === 'Service Description') {
-    if (description.value) {
-      try {
-        const query = {
-          searchBy: 'description',
-          description: description.value
-        }
-        const response = await searchServices(query)
-        services.value = response
-      } catch (error) {
-        toast.error('Error searching services:', error)
-      }
-    }
+function handleSubmitForm() {
+  // same guard as before the conversion: only hit the API if there's
+  // actually something to search by
+  const hasNameQuery = searchBy.value === 'Service Name' && name.value
+  const hasDescriptionQuery = searchBy.value === 'Service Description' && description.value
+  if (hasNameQuery || hasDescriptionQuery) {
+    execute()
   }
 }
 
+function openService(service) {
+  router.push({ name: 'servicedetails', params: { id: service._id } })
+}
+
 onMounted(() => {
-  loadData()
+  execute()
 })
 </script>
