@@ -6,6 +6,7 @@ const org = process.env.ORG_ID;
 
 // Middleware for authorization. For API calls that require authorization, this middleware checks if the header of API calls have a valid security token. If no security token or invalid security token, then the API call is not made.
 const authMiddleWare = require("../auth/authMiddleWare");
+const requireRole = require("../auth/requireRole");
 
 // importing data model schemas
 const { events, clients } = require("../models/models");
@@ -153,59 +154,82 @@ router.put("/update/:id", authMiddleWare, (req, res, next) => {
   );
 });
 
-// API endpoint to PUT -> add attendee to event
-router.put("/register", authMiddleWare, (req, res, next) => {
-  events.find(
-    { _id: req.query.event, attendees: req.query.client, org: org },
-    (error, data) => {
-      if (error) {
-        return next(error);
-      } else {
-        // only add attendee if not yet signed up
-        if (!data.length) {
-          events.findByIdAndUpdate(
-            req.query.event,
-            { $push: { attendees: req.query.client } },
-            (error, data) => {
-              if (error) {
-                return next(error);
-              } else {
-                res.status(200).send("Client added to event");
-              }
-            }
-          );
-        } else {
-          res.status(400).send("Client already added to event");
-        }
-      }
-    }
-  );
-});
+// B1: Event registration rules
+// Registrations are stored in each event's `attendees` array (client ids).
+// Both endpoints:
+//   - require a logged-in editor (authMiddleWare + requireRole('editor'))
+//   - return 404 if the event or client doesn't exist or belongs to another org
+//   - never create duplicates or crash on repeat calls
 
-// API endpoint to PUT -> remove attendee from event
-router.put("/deregister", authMiddleWare, (req, res, next) => {
-  events.findByIdAndUpdate(
-    req.query.event,
-    { $pull: { attendees: req.query.client } },
-    (error, data) => {
-      if (error) {
-        return next(error);
-      } else {
-        clients.findByIdAndUpdate(
-          req.query.client,
-          { $pull: { events: req.query.event } },
-          (error, data) => {
-            if (error) {
-              return next(error);
-            } else {
-              res.send("Client deregistered with event");
-            }
-          }
-        );
+// A valid MongoDB id is 24 hex characters. Anything else can't match a record,
+// so it's treated as "not found" instead of causing a 500 error.
+const isValidId = (id) => typeof id === "string" && /^[a-f0-9]{24}$/i.test(id);
+
+// Looks up the event and client, both restricted to this backend's org.
+// Returns null if either is missing, invalid, or in a different org.
+async function findEventAndClient(eventId, clientId) {
+  if (!isValidId(eventId) || !isValidId(clientId)) return null;
+  const [event, client] = await Promise.all([
+    events.findOne({ _id: eventId, org: org }),
+    clients.findOne({ _id: clientId, orgs: org })
+  ]);
+  if (!event || !client) return null;
+  return { event, client };
+}
+
+// API endpoint to PUT -> register a client for an event
+// Ex: PUT /events/register?event=<eventId>&client=<clientId>
+router.put(
+  "/register",
+  authMiddleWare,
+  requireRole("editor"),
+  async (req, res, next) => {
+    try {
+      const { event: eventId, client: clientId } = req.query;
+      if (!(await findEventAndClient(eventId, clientId))) {
+        return res.status(404).json({ error: "Client or event not found" });
       }
+      // Single atomic update: only adds the client if they aren't already in
+      // attendees, so two requests at once still can't create a duplicate.
+      const result = await events.updateOne(
+        { _id: eventId, org: org, attendees: { $ne: clientId } },
+        { $addToSet: { attendees: clientId } }
+      );
+      if (result.modifiedCount === 0) {
+        return res.status(200).json({ message: "Already registered" });
+      }
+      res.status(200).json({ message: "Client registered for event" });
+    } catch (err) {
+      next(err);
     }
-  );
-});
+  }
+);
+
+// API endpoint to PUT -> deregister a client from an event
+// Ex: PUT /events/deregister?event=<eventId>&client=<clientId>
+router.put(
+  "/deregister",
+  authMiddleWare,
+  requireRole("editor"),
+  async (req, res, next) => {
+    try {
+      const { event: eventId, client: clientId } = req.query;
+      if (!(await findEventAndClient(eventId, clientId))) {
+        return res.status(404).json({ error: "Client or event not found" });
+      }
+      const result = await events.updateOne(
+        { _id: eventId, org: org },
+        { $pull: { attendees: clientId } }
+      );
+      if (result.modifiedCount === 0) {
+        return res.status(200).json({ message: "Not registered" });
+      }
+      res.status(200).json({ message: "Client deregistered from event" });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 // API endpoint to hard DELETE event by ID
 router.delete("/:id", authMiddleWare, (req, res, next) => {
