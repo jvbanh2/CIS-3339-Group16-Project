@@ -330,7 +330,7 @@ function nameWithDate({ name, date }) {
 async function removeClientFromEvent(clientId, eventId) {
   try {
     const response = await deregisterAttendee(eventId, clientId)
-    toast.success(response)
+    toast.success(response.message)
   } catch (error) {
     toast.error(error.message)
   }
