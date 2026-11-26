@@ -9,37 +9,30 @@ Install all dependencies.
     npm install
 
 ### Before startup
-You need to setup a MongoDB database (can be local or remote).
 
-Make sure you have a collection named 'org' in your database that contains at least one organization with the orgid listed in your environment variable (see below).
+You need a MongoDB database (local or remote). You do not need to create any collections or hash any passwords by hand.
 
-An example document inside the org collection in the DB could look like:
-```
-{
-    "_id" : ObjectId("64e0380b3cc28d087655693b"),
-    "name" : "Community Center"
-}
-```
+1. Make sure `backend/.env` exists with these variables (the committed file already has working course-project values):
 
-The database also needs to contain users with hashed passwords and their role. We provide a sample script to create hashed passwords. Please read more about hased password with bcrypt https://heynode.com/blog/2020-04/salt-and-hash-passwords-bcrypt/. There should be at least one user with the viewer role and one with the editor role.
+        MONGO_URL=mongodb://127.0.0.1:27017/dataplatform
+        PORT=3000
+        ORG_ID=64e0380b3cc28d087655693b
+        JWT_SECRET=<any random string>
 
-An example document inside the 'users' collection in the DB could look like:
-```
-{
-    "_id" : ObjectId("64e03e5e3cc28d0886756963"),
-    "username" : "marry",
-    "role" : "editor",
-    "password" : "$2b$10$Vt4jS2ORVImiuyhvAbS1DO8tnEUB0buUUadpFVoho6TfJXzKbRi8a",
-    "org" : ObjectId("64e0380b3cc28d087655693b")
-}
-```
+2. Initialize the database:
 
-Setup a .env file with the following variables: MONGO_URL, PORT, ORG_ID and JWT_SECRET
+        npm run db:init
 
-    MONGO_URL= that is the Mongo URL connection string
-    PORT= e.g.3000
-    ORG_ID = that is the orgid
-    JWT_SECRET=this can be a randomly generated string. It is used to verify JWT tokens
+This creates the organization matching `ORG_ID`, two demo accounts, sample services, clients, and events (with registrations), and the indexes the app needs. Passwords are hashed with bcrypt. The script is safe to run more than once and will not create duplicates. If a setting is missing or the database can't be reached, it stops with an error message and exit code 1.
+
+Demo accounts:
+
+| Role   | Username | Password |
+|--------|----------|----------|
+| viewer | user     | user     |
+| editor | admin    | admin    |
+
+The script also creates a second organization with one client and one event. That data belongs to a different org and should never appear in the app; it is there to test organization isolation.
 
 ### Compiles and hot-reloads for development
 
